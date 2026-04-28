@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	gosys "os/exec"
+	"slices"
 	"strings"
 	"syscall"
 )
@@ -22,6 +23,12 @@ type Options struct {
 
 	// CleanEnv, when true, starts from an empty environment (only EnvPairs).
 	CleanEnv bool
+
+	// UnsetEnv, when true, selectively unsets environment variables.
+	UnsetEnv bool
+
+	// UnsetEnvKeys is a list of environment variables to unset
+	UnsetEnvKeys []string
 
 	// Command is the path (or name, resolved via PATH) of the binary.
 	Command string
@@ -55,18 +62,31 @@ func buildEnv(opts Options) []string {
 		base = os.Environ()
 	}
 
-	index := make(map[string]int, len(base))
-	for i, pair := range base {
-		key := envKey(pair)
-		index[key] = i
+	envIndex := make(map[string]int, len(base))
+	unsetIndex := make(map[string]int, len(opts.UnsetEnvKeys))
+	for i, key := range base {
+		envIndex[key] = i
+	}
+
+	for i, key := range opts.UnsetEnvKeys {
+		unsetIndex[key] = i
+	}
+
+	if opts.UnsetEnv {
+		base = slices.DeleteFunc(base, func(e string) bool {
+			key := envKey(e)
+			_, ok := unsetIndex[key]
+
+			return ok
+		})
 	}
 
 	for _, pair := range opts.EnvPairs {
 		key := envKey(pair)
-		if i, exists := index[key]; exists {
+		if i, exists := envIndex[key]; exists {
 			base[i] = pair // overwrite
 		} else {
-			index[key] = len(base)
+			envIndex[key] = len(base)
 			base = append(base, pair) // append
 		}
 	}

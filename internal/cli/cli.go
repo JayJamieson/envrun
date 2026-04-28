@@ -45,9 +45,11 @@ func Run(args []string) error {
 // runExec parses flags and executes the target command.
 func runExec(args []string) error {
 	var (
-		envPairs []string
-		cleanEnv bool
-		cmdArgs  []string
+		envPairs      []string
+		unsetEnvPairs []string
+		cleanEnv      bool
+		unsetEnvs     bool
+		cmdArgs       []string
 	)
 
 	i := 0
@@ -71,6 +73,10 @@ func runExec(args []string) error {
 		case arg == "--clean":
 			cleanEnv = true
 			i++
+		case strings.HasPrefix(arg, "--unset="):
+			unsetEnvs = true
+			unsetEnvPairs = strings.Split(strings.TrimPrefix(arg, "--unset="), ",")
+			i++
 
 		case strings.HasPrefix(arg, "--"):
 			return fmt.Errorf("unknown flag: %q", arg)
@@ -87,10 +93,12 @@ func runExec(args []string) error {
 	}
 
 	opts := exec.Options{
-		EnvPairs: envPairs,
-		CleanEnv: cleanEnv,
-		Command:  cmdArgs[0],
-		Args:     cmdArgs[1:],
+		EnvPairs:     envPairs,
+		CleanEnv:     cleanEnv,
+		UnsetEnv:     unsetEnvs,
+		UnsetEnvKeys: unsetEnvPairs,
+		Command:      cmdArgs[0],
+		Args:         cmdArgs[1:],
 	}
 
 	return exec.Run(opts)
